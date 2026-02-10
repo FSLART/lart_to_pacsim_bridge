@@ -2,10 +2,12 @@
 #include "lart_msgs/msg/dynamics_cmd.hpp"
 #include "lart_msgs/msg/cone.hpp"
 #include "lart_msgs/msg/cone_array.hpp"
+#include "lart_msgs/msg/dynamics.hpp"
 #include "pacsim/msg/stamped_scalar.hpp"
 #include "pacsim/msg/wheels.hpp"
 #include "pacsim/msg/landmark.hpp"
 #include "pacsim/msg/perception_detections.hpp"
+#include "pacsim/msg/wheels.hpp"
 
 class LartToPacSimBridge : public rclcpp::Node {
 public:
@@ -18,6 +20,8 @@ public:
 
     pub_cones_ = create_publisher<lart_msgs::msg::ConeArray>("/mapping/cones", 10);
 
+    pub_dynamics_ = create_publisher<lart_msgs::msg::Dynamics>("/acu_origin/dynamics", 10);
+
     sub_cmd_ = create_subscription<lart_msgs::msg::DynamicsCMD>(
       "/pc_origin/dynamics", 10,
       std::bind(&LartToPacSimBridge::onDynamicsCmd, this, std::placeholders::_1));
@@ -25,6 +29,9 @@ public:
     sub_landmark_ = create_subscription<pacsim::msg::PerceptionDetections>(
       "/pacsim/perception/livox_front/landmarks", 10,
       std::bind(&LartToPacSimBridge::landmarksCallback, this, std::placeholders::_1));
+
+    sub_wheels_ = create_subscription<pacsim::msg::Wheels>("/pacsim/wheelspeeds",10,
+      std::bind(&LartToPacSimBridge::wheelsCallback, this, std::placeholders::_1));
 
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
   }
@@ -66,6 +73,12 @@ private:
     pub_cones_->publish(cone_array);
   }
 
+  void wheelsCallback(const pacsim::msg::Wheels::SharedPtr msg) {
+    lart_msgs::msg::Dynamics dyn;
+    dyn.rpm = msg->fl;
+    pub_dynamics_->publish(dyn);
+  }
+
   float rpmToTorque(float rpm) { return rpm / 4.0f; } 
 
   int getConeClass(std::array<double, 7> class_probs) {
@@ -95,9 +108,12 @@ private:
 
   rclcpp::Subscription<lart_msgs::msg::DynamicsCMD>::SharedPtr sub_cmd_;
   rclcpp::Subscription<pacsim::msg::PerceptionDetections>::SharedPtr sub_landmark_;
+  rclcpp::Subscription<pacsim::msg::Wheels>::SharedPtr sub_wheels_;
   rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr pub_steer_, pub_pg_;
   rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr pub_torque_;
+
   rclcpp::Publisher<lart_msgs::msg::ConeArray>::SharedPtr pub_cones_;
+  rclcpp::Publisher<lart_msgs::msg::Dynamics>::SharedPtr pub_dynamics_;
 };
 
 int main(int argc, char** argv) {
