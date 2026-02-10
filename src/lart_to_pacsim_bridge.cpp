@@ -23,7 +23,7 @@ public:
       std::bind(&LartToPacSimBridge::onDynamicsCmd, this, std::placeholders::_1));
 
     sub_landmark_ = create_subscription<pacsim::msg::PerceptionDetections>(
-      "/pacsim/detections", 10,
+      "/pacsim/perception/livox_front/landmarks", 10,
       std::bind(&LartToPacSimBridge::landmarksCallback, this, std::placeholders::_1));
 
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
