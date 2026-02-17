@@ -9,18 +9,24 @@
 #include "pacsim/msg/perception_detections.hpp"
 #include "pacsim/msg/wheels.hpp"
 
+#include "geometry_msgs/msg/vector3_stamped.hpp"
+
+#include "sensor_msgs/msg/imu.hpp"
+
 class LartToPacSimBridge : public rclcpp::Node {
 public:
   LartToPacSimBridge() : rclcpp::Node("lart_to_pacsim_bridge") {
-    declare_parameter<double>("powered_ground_value", 1.0);
+    declare_parameter<double>("powered_ground_value", 0.3);
 
     pub_steer_  = create_publisher<pacsim::msg::StampedScalar>("/pacsim/steering_setpoint", 10);
     pub_pg_     = create_publisher<pacsim::msg::StampedScalar>("/pacsim/powerground_setpoint", 10);
-    pub_torque_ = create_publisher<pacsim::msg::Wheels>("/pacsim/wheelspeed_setpoints", 10);
+    pub_torque_ = create_publisher<pacsim::msg::Wheels>("/pacsim/torques_max", 10);
 
     pub_cones_ = create_publisher<lart_msgs::msg::ConeArray>("/mapping/cones", 10);
 
     pub_dynamics_ = create_publisher<lart_msgs::msg::Dynamics>("/acu_origin/dynamics", 10);
+
+    pub_angular_vel_ = create_publisher<geometry_msgs::msg::Vector3Stamped>("/imu/angular_velocity", 10);
 
     sub_cmd_ = create_subscription<lart_msgs::msg::DynamicsCMD>(
       "/pc_origin/dynamics", 10,
@@ -33,6 +39,10 @@ public:
     sub_wheels_ = create_subscription<pacsim::msg::Wheels>("/pacsim/wheelspeeds",10,
       std::bind(&LartToPacSimBridge::wheelsCallback, this, std::placeholders::_1));
 
+    sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
+      "/pacsim/imu/cog_imu", 10, std::bind(&LartToPacSimBridge::imuCallback, this, std::placeholders::_1));
+      
+
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
   }
 
@@ -41,7 +51,7 @@ private:
     // Steering (rad)
     pacsim::msg::StampedScalar steer;
     steer.stamp = now();
-    steer.value = msg->steering_angle;
+    steer.value = msg->steering_angle*2.5f;
     pub_steer_->publish(steer);
 
     // Powered ground (0..1)
@@ -52,11 +62,11 @@ private:
 
     // Torque command (Nm) — placeholder mapping from RPM
     pacsim::msg::Wheels tq;
-    const float t = rpmToTorque(static_cast<float>(msg->rpm));
-    tq.fl = msg->acc_cmd; 
-    tq.fr = msg->acc_cmd; 
-    tq.rl = msg->acc_cmd; 
-    tq.rr = msg->acc_cmd; 
+
+    tq.fl = static_cast<double>(msg->acc_cmd); 
+    tq.fr = static_cast<double>(msg->acc_cmd); 
+    tq.rl = static_cast<double>(msg->acc_cmd); 
+    tq.rr = static_cast<double>(msg->acc_cmd); 
     pub_torque_->publish(tq);
   }
 
@@ -75,8 +85,17 @@ private:
 
   void wheelsCallback(const pacsim::msg::Wheels::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    dyn.rpm = msg->fl;
+    dyn.rpm = msg->fl/4;
     pub_dynamics_->publish(dyn);
+  }
+
+  void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
+    geometry_msgs::msg::Vector3Stamped angular_vel;
+    angular_vel.header = msg->header;
+    angular_vel.vector.x = msg->angular_velocity.x;
+    angular_vel.vector.y = msg->angular_velocity.y;
+    angular_vel.vector.z = msg->angular_velocity.z;
+    pub_angular_vel_->publish(angular_vel);
   }
 
   float rpmToTorque(float rpm) { return rpm / 4.0f; } 
@@ -109,6 +128,10 @@ private:
   rclcpp::Subscription<lart_msgs::msg::DynamicsCMD>::SharedPtr sub_cmd_;
   rclcpp::Subscription<pacsim::msg::PerceptionDetections>::SharedPtr sub_landmark_;
   rclcpp::Subscription<pacsim::msg::Wheels>::SharedPtr sub_wheels_;
+
+  rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
+  rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_angular_vel_;
+
   rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr pub_steer_, pub_pg_;
   rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr pub_torque_;
 

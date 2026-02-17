@@ -17,7 +17,7 @@ def getFullFilePath(name, dir):
     )
     return ret
 def generate_launch_description():
-    track_name = "FSE23.yaml"
+    track_name = "FSG24.yaml"
     track_frame = "map"
     realtime_ratio = 1.0
     discipline = "autocross"
@@ -90,5 +90,5 @@ def generate_launch_description():
         pacsim_to_lart_bridge,
         foxglove_bridge,
         car_to_basefootprint,
-        map_to_basefootprint,
+        # map_to_basefootprint,
     ])
