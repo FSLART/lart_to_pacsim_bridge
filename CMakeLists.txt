@@ -13,6 +13,17 @@ find_package(pacsim REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
 
 add_executable(lart_to_pacsim_bridge src/lart_to_pacsim_bridge.cpp)
+
+target_include_directories(lart_to_pacsim_bridge PUBLIC
+  $<BUILD_INTERFACE:${CMAKE_CURRENT_SOURCE_DIR}/include>
+  $<INSTALL_INTERFACE:include>
+)
+
+include_directories(
+  include
+  ${CMAKE_CURRENT_SOURCE_DIR}/../lart_common
+)
+
 ament_target_dependencies(
   lart_to_pacsim_bridge 
   rclcpp 
@@ -23,6 +34,10 @@ ament_target_dependencies(
 
 install(TARGETS lart_to_pacsim_bridge
  RUNTIME DESTINATION lib/${PROJECT_NAME}
+)
+
+install(DIRECTORY include/
+  DESTINATION include
 )
 
 install(DIRECTORY launch

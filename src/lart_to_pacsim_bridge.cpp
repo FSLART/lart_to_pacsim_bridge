@@ -1,4 +1,6 @@
 #include <rclcpp/rclcpp.hpp>
+
+#include "lart_common.h"
 #include "lart_msgs/msg/dynamics_cmd.hpp"
 #include "lart_msgs/msg/cone.hpp"
 #include "lart_msgs/msg/cone_array.hpp"
@@ -10,6 +12,7 @@
 #include "pacsim/msg/wheels.hpp"
 
 #include "geometry_msgs/msg/vector3_stamped.hpp"
+#include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 
 #include "sensor_msgs/msg/imu.hpp"
 
@@ -41,6 +44,9 @@ public:
 
     sub_imu_ = create_subscription<sensor_msgs::msg::Imu>(
       "/pacsim/imu/cog_imu", 10, std::bind(&LartToPacSimBridge::imuCallback, this, std::placeholders::_1));
+    
+    sub_velocity_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
+      "/pacsim/velocity", 10, std::bind(&LartToPacSimBridge::velocityCallback, this, std::placeholders::_1));
       
 
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
@@ -63,10 +69,10 @@ private:
     // Torque command (Nm) — placeholder mapping from RPM
     pacsim::msg::Wheels tq;
 
-    tq.fl = static_cast<double>(msg->acc_cmd); 
-    tq.fr = static_cast<double>(msg->acc_cmd); 
-    tq.rl = static_cast<double>(msg->acc_cmd); 
-    tq.rr = static_cast<double>(msg->acc_cmd); 
+    tq.fl = static_cast<double>(msg->acc_cmd*4); 
+    tq.fr = static_cast<double>(msg->acc_cmd*4); 
+    tq.rl = static_cast<double>(msg->acc_cmd*4); 
+    tq.rr = static_cast<double>(msg->acc_cmd*4); 
     pub_torque_->publish(tq);
   }
 
@@ -77,7 +83,7 @@ private:
       cone.position.x = det.pose.pose.position.x;
       cone.position.y = det.pose.pose.position.y;
       cone.position.z = det.pose.pose.position.z;
-      cone.class_type.data = pacsimConeToLartCone(getConeClass(det.class_probabilities));
+      cone.class_type.data =getConeClass(det.class_probabilities);
       cone_array.cones.push_back(cone);
     }
     pub_cones_->publish(cone_array);
@@ -85,7 +91,13 @@ private:
 
   void wheelsCallback(const pacsim::msg::Wheels::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    dyn.rpm = msg->fl/4;
+    dyn.rpm = msg->fl/3.0575;
+    // pub_dynamics_->publish(dyn);
+  }
+
+  void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
+    lart_msgs::msg::Dynamics dyn;
+    dyn.rpm = MS_TO_RPM(msg->twist.twist.linear.x);
     pub_dynamics_->publish(dyn);
   }
 
@@ -97,8 +109,6 @@ private:
     angular_vel.vector.z = msg->angular_velocity.z;
     pub_angular_vel_->publish(angular_vel);
   }
-
-  float rpmToTorque(float rpm) { return rpm / 4.0f; } 
 
   int getConeClass(std::array<double, 7> class_probs) {
     int max_index = 0;
@@ -128,6 +138,7 @@ private:
   rclcpp::Subscription<lart_msgs::msg::DynamicsCMD>::SharedPtr sub_cmd_;
   rclcpp::Subscription<pacsim::msg::PerceptionDetections>::SharedPtr sub_landmark_;
   rclcpp::Subscription<pacsim::msg::Wheels>::SharedPtr sub_wheels_;
+  rclcpp::Subscription<geometry_msgs::msg::TwistWithCovarianceStamped>::SharedPtr sub_velocity_;
 
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_angular_vel_;
