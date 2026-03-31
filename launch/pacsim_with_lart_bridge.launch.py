@@ -18,7 +18,7 @@ def getFullFilePath(name, dir):
     return ret
 def generate_launch_description():
     track_name = "FSO20.yaml"
-    track_frame = "map"
+    track_frame = "world"
     realtime_ratio = 1.0
     discipline = "autocross"
 
