@@ -50,6 +50,8 @@ public:
       
 
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
+
+    this->rpm_from_ms_ = 0.0;
   }
 
 private:
@@ -91,14 +93,16 @@ private:
 
   void wheelsCallback(const pacsim::msg::Wheels::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    dyn.rpm = msg->fl/3.0575;
-    // pub_dynamics_->publish(dyn);
+    double average = (msg->fl + msg->fr + msg->rl + msg->rr )/4.0;
+    dyn.rpm = (uint16_t)((average/3.0575)+this->rpm_from_ms_)/2.0; // 3.0575 is the max speed in m/s at 100% power, so this normalizes the average wheel speed to a percentage of max speed, then adds the RPM derived from velocity
+    pub_dynamics_->publish(dyn);
   }
 
   void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    dyn.rpm = MS_TO_RPM(msg->twist.twist.linear.x);
-    pub_dynamics_->publish(dyn);
+    // dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
+    this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
+    // pub_dynamics_->publish(dyn);
   }
 
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -148,6 +152,7 @@ private:
 
   rclcpp::Publisher<lart_msgs::msg::ConeArray>::SharedPtr pub_cones_;
   rclcpp::Publisher<lart_msgs::msg::Dynamics>::SharedPtr pub_dynamics_;
+  double rpm_from_ms_;
 };
 
 int main(int argc, char** argv) {

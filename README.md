@@ -20,3 +20,4 @@ From ROS 2 workspace root:
 in terminal write:
 colcon build --packages-select lart_to_pacsim_bridge
 source install/setup.bash
+ros2 launch lart_to_pacsim_bridge pacsim_with_lart_bridge.launch.py
