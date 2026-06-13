@@ -75,7 +75,7 @@ def generate_launch_description():
                 'port': 8765,
                 'address': '0.0.0.0',
                 'tls': False,
-                'use_compression': True
+                'use_sim_time': True
             }]
         )
     

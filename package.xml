@@ -12,6 +12,8 @@
   <depend>rlcpp</depend>
   <depend>lart_msgs</depend>
   <depend>pacsim</depend>
+  <depend>geometry_msgs</depend>
+  <depend>tf2_msgs</depend>
 
   <export>
     <build_type>ament_cmake</build_type>

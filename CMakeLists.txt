@@ -10,7 +10,10 @@ find_package(ament_cmake REQUIRED)
 find_package(rclcpp REQUIRED)
 find_package(lart_msgs REQUIRED)
 find_package(pacsim REQUIRED)
+find_package(tf2_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(rosidl_default_runtime REQUIRED)
+
 
 add_executable(lart_to_pacsim_bridge src/lart_to_pacsim_bridge.cpp)
 
@@ -30,6 +33,8 @@ ament_target_dependencies(
   lart_msgs
   pacsim
   rosidl_default_runtime
+  tf2_msgs
+  geometry_msgs
 )
 
 install(TARGETS lart_to_pacsim_bridge

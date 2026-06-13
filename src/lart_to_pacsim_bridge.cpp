@@ -14,6 +14,10 @@
 #include "geometry_msgs/msg/vector3_stamped.hpp"
 #include "geometry_msgs/msg/twist_with_covariance_stamped.hpp"
 
+#include "geometry_msgs/msg/pose_stamped.hpp"
+
+#include "tf2_msgs/msg/tf_message.hpp"
+
 #include "sensor_msgs/msg/imu.hpp"
 
 class LartToPacSimBridge : public rclcpp::Node {
@@ -47,7 +51,16 @@ public:
     
     sub_velocity_ = create_subscription<geometry_msgs::msg::TwistWithCovarianceStamped>(
       "/pacsim/velocity", 10, std::bind(&LartToPacSimBridge::velocityCallback, this, std::placeholders::_1));
-      
+    
+    // PacSim broadcasts the ground-truth vehicle pose as a TF transform
+    // (parent "map" -> child "car"). Mirror it onto a plain pose topic.
+    parent_frame_ = declare_parameter<std::string>("pose_parent_frame", "world");
+    child_frame_  = declare_parameter<std::string>("pose_child_frame", "car");
+
+    pub_pose_ = create_publisher<geometry_msgs::msg::PoseStamped>("/pacsim/pose", 10);
+
+    sub_tf_ = create_subscription<tf2_msgs::msg::TFMessage>(
+      "/tf", 100, std::bind(&LartToPacSimBridge::tfCallback, this, std::placeholders::_1));
 
     RCLCPP_INFO(get_logger(), "LART to PacSim bridge started");
 
@@ -72,10 +85,10 @@ private:
     // Torque command (Nm) — placeholder mapping from RPM
     pacsim::msg::Wheels tq;
 
-    tq.fl = static_cast<double>(msg->acc_cmd*4); 
-    tq.fr = static_cast<double>(msg->acc_cmd*4); 
-    tq.rl = static_cast<double>(msg->acc_cmd*4); 
-    tq.rr = static_cast<double>(msg->acc_cmd*4); 
+    tq.fl = static_cast<double>(msg->acc_cmd*4.0); 
+    tq.fr = static_cast<double>(msg->acc_cmd*4.0); 
+    tq.rl = static_cast<double>(msg->acc_cmd*4.0); 
+    tq.rr = static_cast<double>(msg->acc_cmd*4.0); 
     pub_torque_->publish(tq);
   }
 
@@ -102,10 +115,27 @@ private:
 
   void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    // dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
+    dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
     //this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
-    dyn.rpm = this->rpm_from_ms_;
+    // dyn.rpm = this->rpm_from_ms_;
     pub_dynamics_->publish(dyn);
+  }
+
+  void tfCallback(const tf2_msgs::msg::TFMessage::SharedPtr msg) {
+    // /tf carries many transforms; pick out the sim's map -> car pose.
+    for (const auto& tf : msg->transforms) {
+      if (tf.header.frame_id != parent_frame_ || tf.child_frame_id != child_frame_) {
+        continue;
+      }
+      geometry_msgs::msg::PoseStamped pose;
+      pose.header = tf.header;  // keep the sim timestamp and parent frame
+      pose.pose.position.x = tf.transform.translation.x;
+      pose.pose.position.y = tf.transform.translation.y;
+      pose.pose.position.z = tf.transform.translation.z;
+      pose.pose.orientation = tf.transform.rotation;
+      pub_pose_->publish(pose);
+      break;
+    }
   }
 
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
@@ -115,20 +145,16 @@ private:
     angular_vel.vector.y = msg->angular_velocity.y;
     angular_vel.vector.z = msg->angular_velocity.z;
 
-    // Convert the message stamp to rclcpp::Time
-    rclcpp::Time current_time = msg->header.stamp;
+    // // // Convert the message stamp to rclcpp::Time
+    // rclcpp::Time current_time = msg->header.stamp;
 
-    // Calculate dt safely using rclcpp::Duration
-    double dt = (current_time - last_imu_time_).seconds();
+    // // Calculate dt safely using rclcpp::Duration
+    // double dt = (current_time - last_imu_time_).seconds();
     
-    // Fallback for the very first callback execution where last_imu_time_ is 0
-    if (dt > 100.0 || dt < 0.0) { 
-      dt = 0.0; 
-    }
 
-    // Integrate acceleration to get velocity for dynamics message
-    this->rpm_from_ms_ += MS_TO_RPM(sqrt(msg->linear_acceleration.x*msg->linear_acceleration.x + msg->linear_acceleration.y*msg->linear_acceleration.y)*dt);
-    last_imu_time_ = current_time; 
+    // // Integrate acceleration to get velocity for dynamics message
+    // this->rpm_from_ms_ += MS_TO_RPM(sqrt(msg->linear_acceleration.x*msg->linear_acceleration.x + msg->linear_acceleration.y*msg->linear_acceleration.y)*dt);
+    // last_imu_time_ = current_time; 
     pub_angular_vel_->publish(angular_vel);
   }
 
@@ -165,12 +191,16 @@ private:
   rclcpp::Subscription<sensor_msgs::msg::Imu>::SharedPtr sub_imu_;
   rclcpp::Publisher<geometry_msgs::msg::Vector3Stamped>::SharedPtr pub_angular_vel_;
 
+  rclcpp::Subscription<tf2_msgs::msg::TFMessage>::SharedPtr sub_tf_;
+  rclcpp::Publisher<geometry_msgs::msg::PoseStamped>::SharedPtr pub_pose_;
+  std::string parent_frame_, child_frame_;
+
   rclcpp::Publisher<pacsim::msg::StampedScalar>::SharedPtr pub_steer_, pub_pg_;
   rclcpp::Publisher<pacsim::msg::Wheels>::SharedPtr pub_torque_;
 
   rclcpp::Publisher<lart_msgs::msg::ConeArray>::SharedPtr pub_cones_;
   rclcpp::Publisher<lart_msgs::msg::Dynamics>::SharedPtr pub_dynamics_;
-  double rpm_from_ms_ = 0.0;
+  double rpm_from_ms_;
   rclcpp::Time last_imu_time_;
 };
 
