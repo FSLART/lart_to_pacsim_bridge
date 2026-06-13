@@ -102,8 +102,9 @@ private:
 
   void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
+    // dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
     //this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
+    dyn.rpm = this->rpm_from_ms_;
     pub_dynamics_->publish(dyn);
   }
 
