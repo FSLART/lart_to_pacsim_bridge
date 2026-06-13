@@ -113,6 +113,11 @@ private:
     angular_vel.vector.x = msg->angular_velocity.x;
     angular_vel.vector.y = msg->angular_velocity.y;
     angular_vel.vector.z = msg->angular_velocity.z;
+
+    //integrate acceleration to get velocity for dynamics message
+    double dt = (msg->header.stamp.sec - last_imu_time_.sec) + (msg->header.stamp.nanosec - last_imu_time_.nanosec) / 1e9;
+    this->rpm_from_ms_ += MS_TO_RPM(sqrt(msg->linear_acceleration.x*msg->linear_acceleration.x + msg->linear_acceleration.y*msg->linear_acceleration.y)*dt);
+    last_imu_time_ = msg->header.stamp; 
     pub_angular_vel_->publish(angular_vel);
   }
 
@@ -154,7 +159,8 @@ private:
 
   rclcpp::Publisher<lart_msgs::msg::ConeArray>::SharedPtr pub_cones_;
   rclcpp::Publisher<lart_msgs::msg::Dynamics>::SharedPtr pub_dynamics_;
-  double rpm_from_ms_;
+  double rpm_from_ms_ = 0.0;
+  rclcpp::Time last_imu_time_;
 };
 
 int main(int argc, char** argv) {
