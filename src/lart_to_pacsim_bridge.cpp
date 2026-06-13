@@ -115,10 +115,20 @@ private:
     angular_vel.vector.y = msg->angular_velocity.y;
     angular_vel.vector.z = msg->angular_velocity.z;
 
-    //integrate acceleration to get velocity for dynamics message
-    double dt = (msg->header.stamp.sec - last_imu_time_.sec) + (msg->header.stamp.nanosec - last_imu_time_.nanosec) / 1e9;
+    // Convert the message stamp to rclcpp::Time
+    rclcpp::Time current_time = msg->header.stamp;
+
+    // Calculate dt safely using rclcpp::Duration
+    double dt = (current_time - last_imu_time_).seconds();
+    
+    // Fallback for the very first callback execution where last_imu_time_ is 0
+    if (dt > 100.0 || dt < 0.0) { 
+      dt = 0.0; 
+    }
+
+    // Integrate acceleration to get velocity for dynamics message
     this->rpm_from_ms_ += MS_TO_RPM(sqrt(msg->linear_acceleration.x*msg->linear_acceleration.x + msg->linear_acceleration.y*msg->linear_acceleration.y)*dt);
-    last_imu_time_ = msg->header.stamp; 
+    last_imu_time_ = current_time; 
     pub_angular_vel_->publish(angular_vel);
   }
 
