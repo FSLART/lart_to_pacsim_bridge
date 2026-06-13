@@ -20,7 +20,7 @@ def generate_launch_description():
     track_name = "FSG25_FEUP_clean.yaml"
     track_frame = "world"
     realtime_ratio = 1.0
-    discipline = "autocross"
+    discipline = "trackdrive"
 
     xacro_file_name = 'separate_model.xacro'
     xacro_path = getFullFilePath(xacro_file_name, "urdf")

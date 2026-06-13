@@ -59,7 +59,8 @@ private:
     // Steering (rad)
     pacsim::msg::StampedScalar steer;
     steer.stamp = now();
-    steer.value = msg->steering_angle*2.5f;
+    // steer.value = msg->steering_angle*2.5f;
+    steer.value=DEG_TO_RAD(-49.3021*std::pow(msg->steering_angle,3)+90.5065*std::pow(msg->steering_angle,2)+312.5504*msg->steering_angle);
     pub_steer_->publish(steer);
 
     // Powered ground (0..1)
@@ -93,16 +94,17 @@ private:
 
   void wheelsCallback(const pacsim::msg::Wheels::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    double average = (msg->fl + msg->fr + msg->rl + msg->rr )/4.0;
-    dyn.rpm = (uint16_t)((average/3.0575)+this->rpm_from_ms_)/2.0; // 3.0575 is the max speed in m/s at 100% power, so this normalizes the average wheel speed to a percentage of max speed, then adds the RPM derived from velocity
-    pub_dynamics_->publish(dyn);
+    //double average = (msg->fl + msg->fr + msg->rl + msg->rr )/4.0;
+    ////dyn.rpm = (uint16_t)((average/3.0575)+this->rpm_from_ms_)/2.0; // 3.0575 is the max speed in m/s at 100% power, so this normalizes the average wheel speed to a percentage of max speed, then adds the RPM derived from velocity
+    //dyn.rpm = (uint16_t)(average + this->rpm_from_ms_)/2.0;
+    //pub_dynamics_->publish(dyn);
   }
 
   void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
-    // dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
-    this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
-    // pub_dynamics_->publish(dyn);
+    dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
+    //this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
+    pub_dynamics_->publish(dyn);
   }
 
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
