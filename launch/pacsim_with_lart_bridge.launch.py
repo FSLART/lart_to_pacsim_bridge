@@ -74,8 +74,7 @@ def generate_launch_description():
             parameters=[{
                 'port': 8765,
                 'address': '0.0.0.0',
-                'tls': False,
-                'use_compression': True
+                'tls': False
             }]
         )
     
