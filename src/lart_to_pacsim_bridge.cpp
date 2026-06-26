@@ -87,6 +87,7 @@ private:
       cone.position.x = det.pose.pose.position.x;
       cone.position.y = det.pose.pose.position.y;
       cone.position.z = det.pose.pose.position.z;
+      cone.cone_id.data = det.id;
       cone.class_type.data =getConeClass(det.class_probabilities);
       cone_array.cones.push_back(cone);
     }
