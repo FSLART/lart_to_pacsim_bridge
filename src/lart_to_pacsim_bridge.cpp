@@ -27,12 +27,12 @@ public:
 
     pub_cones_ = create_publisher<lart_msgs::msg::ConeArray>("/mapping/cones", 10);
 
-    pub_dynamics_ = create_publisher<lart_msgs::msg::Dynamics>("/acu_origin/dynamics", 10);
+    pub_dynamics_ = create_publisher<lart_msgs::msg::Dynamics>("/control/feedback", 10);
 
     pub_angular_vel_ = create_publisher<geometry_msgs::msg::Vector3Stamped>("/imu/angular_velocity", 10);
 
     sub_cmd_ = create_subscription<lart_msgs::msg::DynamicsCMD>(
-      "/pc_origin/dynamics", 10,
+      "/control/torque_target", 10,
       std::bind(&LartToPacSimBridge::onDynamicsCmd, this, std::placeholders::_1));
 
     sub_landmark_ = create_subscription<pacsim::msg::PerceptionDetections>(
@@ -61,7 +61,7 @@ private:
     pacsim::msg::StampedScalar steer;
     steer.stamp = now();
     // steer.value = msg->steering_angle*2.5f;
-    steer.value=DEG_TO_RAD(-49.3021*std::pow(msg->steering_angle,3)+90.5065*std::pow(msg->steering_angle,2)+312.5504*msg->steering_angle);
+    steer.value=DEG_TO_RAD(-49.3021*std::pow(-msg->steering_angle,3)+90.5065*std::pow(-msg->steering_angle,2)+312.5504*(-msg->steering_angle));
     pub_steer_->publish(steer);
 
     // Powered ground (0..1)
@@ -104,10 +104,11 @@ private:
 
   void velocityCallback(const geometry_msgs::msg::TwistWithCovarianceStamped::SharedPtr msg) {
     lart_msgs::msg::Dynamics dyn;
+    dyn.header.stamp = msg->header.stamp;
     // dyn.rpm = MS_TO_RPM(sqrt(msg->twist.twist.linear.x*msg->twist.twist.linear.x + msg->twist.twist.linear.y*msg->twist.twist.linear.y));
     this->rpm_from_ms_ = MS_TO_RPM(msg->twist.twist.linear.x);
     dyn.rpm = this->rpm_from_ms_;
-     pub_dynamics_->publish(dyn);
+    pub_dynamics_->publish(dyn);
   }
 
   void imuCallback(const sensor_msgs::msg::Imu::SharedPtr msg) {
